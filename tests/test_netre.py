@@ -1,29 +1,46 @@
-import unittest
+import pytest
 from unittest.mock import patch, MagicMock
+import subprocess
 import platform
-import NetRe
+from NetRe import get_windows_wifi, get_macos_wifi, get_linux_wifi
 
-class TestNetRe(unittest.TestCase):
+def test_get_windows_wifi_success(mocker):
+    # Mock subprocess output for netsh profiles
+    mocker.patch("subprocess.check_output", side_effect=[
+        b"Profiles on interface Wi-Fi:\n\nGroup policy profiles (read only)\n---------------------------------\n    <None>\n\nUser profiles\n-------------\n    All User Profile     : Home-WiFi\n",
+        b"Profile Home-WiFi on interface Wi-Fi:\n\nSecurity settings\n-----------------\n    Key Content            : password123\n"
+    ])
+    
+    results = get_windows_wifi()
+    assert len(results) == 1
+    assert results[0]["ssid"] == "Home-WiFi"
+    assert results[0]["password"] == "password123"
 
-    @patch('platform.system')
-    def test_os_detection(self, mock_system):
-        mock_system.return_value = 'Windows'
-        self.assertEqual(platform.system(), 'Windows')
-        
-        mock_system.return_value = 'Darwin'
-        self.assertEqual(platform.system(), 'Darwin')
+def test_get_macos_wifi_success(mocker):
+    # Mock networksetup and security output
+    mocker.patch("subprocess.check_output", side_effect=[
+        b"Preferred networks on en0:\n  Office-WiFi\n",
+        b"secure_password\n"
+    ])
+    
+    results = get_macos_wifi()
+    assert len(results) == 1
+    assert results[0]["ssid"] == "Office-WiFi"
+    assert results[0]["password"] == "secure_password"
 
-    @patch('subprocess.check_output')
-    def test_windows_wifi_parsing(self, mock_subprocess):
-        # Mock 'netsh wlan show profiles'
-        mock_subprocess.return_value = b"Profiles on interface Wi-Fi:\n\nGroup policy profiles (read only)\n---------------------------------\n    <None>\n\nUser profiles\n-------------\n    All User Profile     : MyHomeWiFi\n"
-        
-        # We need to mock the second call inside the loop too
-        # This is simplified for a basic check
-        with patch('NetRe.get_windows_wifi') as mock_get:
-            mock_get.return_value = [{"ssid": "MyHomeWiFi", "password": "password123"}]
-            data = NetRe.get_windows_wifi()
-            self.assertEqual(data[0]['ssid'], 'MyHomeWiFi')
+def test_get_linux_wifi_success(mocker):
+    # Mock nmcli output
+    mocker.patch("subprocess.check_output", side_effect=[
+        b"Linux-WiFi\n",
+        b"linux_pass\n"
+    ])
+    
+    results = get_linux_wifi()
+    assert len(results) == 1
+    assert results[0]["ssid"] == "Linux-WiFi"
+    assert results[0]["password"] == "linux_pass"
 
-if __name__ == '__main__':
-    unittest.main()
+def test_unsupported_os(mocker):
+    with patch("platform.system", return_value="UnknownOS"):
+        # Since main() handles the print, we'd test logic here if exported
+        pass
