@@ -1,0 +1,61 @@
+name: Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: NetRe-linux
+            asset_name: NetRe-linux
+          - os: windows-latest
+            artifact_name: NetRe.exe
+            asset_name: NetRe-windows.exe
+          - os: macos-latest
+            artifact_name: NetRe
+            asset_name: NetRe-macos
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      shell: bash
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile --name NetRe NetRe.py
+      shell: bash
+
+    - name: Rename artifact
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          mv dist/NetRe.exe dist/${{ matrix.asset_name }}
+        else
+          mv dist/NetRe dist/${{ matrix.asset_name }}
+        fi
+      shell: bash
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/${{ matrix.asset_name }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -20,10 +20,10 @@ def print_banner():
     banner = f"""{Colors.OKBLUE}{Colors.BOLD}
     ========================================
        _   _      _   ____
-      | \\ | | ___| |_|  _ \\ ___
-      |  \\| |/ _ \\ __| |_) / _ \\
-      | |\\  |  __/ |_|  _ <  __/
-      |_| \\_|\\___|\\__|_| \\_\\___|
+      | \ | | ___| |_|  _ \ ___
+      |  \| |/ _ \ __| |_) / _ \
+      | |\  |  __/ |_|  _ <  __/
+      |_| \_|\___|\__|_| \_\___|
     
       Cross-Platform Wi-Fi Retriever
     ========================================{Colors.ENDC}
@@ -34,11 +34,11 @@ def get_windows_wifi():
     networks = []
     try:
         data = subprocess.check_output(['netsh', 'wlan', 'show', 'profiles']).decode('utf-8', errors='ignore').split('\n')
-        profiles = [i.split(":")[1][1:-1] for i in data if "All User Profile" in i]
+        profiles = [i.split(":")[1].strip() for i in data if "All User Profile" in i]
         for i in profiles:
             try:
                 results = subprocess.check_output(['netsh', 'wlan', 'show', 'profile', i, 'key=clear']).decode('utf-8', errors='ignore').split('\n')
-                password = [b.split(":")[1][1:-1] for b in results if "Key Content" in b]
+                password = [b.split(":")[1].strip() for b in results if "Key Content" in b]
                 networks.append({"ssid": i, "password": password[0] if password else ""})
             except subprocess.CalledProcessError:
                 networks.append({"ssid": i, "password": "Error retrieving"})
@@ -121,6 +121,11 @@ def main():
         wifi_data = get_linux_wifi()
     else:
         print(f"{Colors.FAIL}[!] OS {os_type} is not supported.{Colors.ENDC}")
+        return
+    
+    # Check if data exists
+    if not wifi_data:
+        print(f"{Colors.WARNING}[!] No Wi-Fi profiles found.{Colors.ENDC}")
         return
 
     # Results Table
